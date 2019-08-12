@@ -10,6 +10,7 @@
 # -- Microsoft LAPS
 # -- Windows Bitlocker
 # -- Windows Features Disabled (SMB1 Protocol and Powershell v2)
+# -- Microsoft Defender ATP
 #
 # If all features are enabled, the script apply the WinCompliance tag.
 # This script also get the Bios version from WMI and set the McAfee Agent Custom property 1
@@ -167,6 +168,16 @@ If ($ComplianceStatus -eq 6) {
 	$url = "https://$epohost/remote/system.applyTag?names=$compName&tagName=WinCompliance"
 	$wc.DownloadString($url)
 }
+# Checking MDATP 
+#
+if (Test-Path -Path "HKLM:\SOFTWARE\Microsoft\Windows Advanced Threat Protection\Status") { 
+	$MDATP = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Advanced Threat Protection\Status"
+	If ($MDATP.OnboardingState -eq 1) {
+		$url = "https://$epohost/remote/system.applyTag?names=$compName&tagName=WinMDATP"
+		$wc.DownloadString($url)
+		$ComplianceStatus = ($ComplianceStatus + 1)
+	}
+} 
 
 #
 # Set Bios Version and set Agent Custom property 1.
