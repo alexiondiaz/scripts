@@ -10,6 +10,7 @@
 # -- Microsoft LAPS
 # -- Windows Bitlocker
 # -- Windows Features Disabled (SMB1 Protocol and Powershell v2)
+# -- Windows Defender ATP
 #
 # If all features are enabled, the script apply the WinCompliance tag.
 # This script also get the Bios version from WMI and set the McAfee Agent Custom property 1
@@ -21,8 +22,8 @@
 # * V1 Start 
 # * V2 Some changes
 # * V3 Check if/else and change run to 2 days. -11 Jan 2019 
+# * V4 Check Windows Defender ATP and Modification of Windows Firewall Registry Key
 #
-
 #
 # Setting Variables
 #
@@ -119,13 +120,13 @@ if ($AppLocker.RuleCollectionTypes -ne $null) {
 #
 # Checking Windows Firewall
 #
-$FirewallDomain = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\DomainProfile"
-$FirewallPublic = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\PublicProfile"
-$FirewallStandard = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile"
-if ($FirewallDomain.EnableFirewall -eq 1 -And $FirewallPublic.EnableFirewall -eq 1 -And $FirewallStandard.EnableFirewall -eq 1) { 
-	$url = "https://$epohost/remote/system.applyTag?names=$compName&tagName=WinFirewall"
-	$wc.DownloadString($url)
-	$ComplianceStatus = ($ComplianceStatus + 1)
+$FirewallDomain = Get-ItemProperty -Path "HKLM:\\SOFTWARE\Policies\Microsoft\WindowsFirewall\DomainProfile"
+$FirewallPublic = Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall\PublicProfile"
+$FirewallPrivate = Get-ItemProperty -Path "HKLM:\\SOFTWARE\Policies\Microsoft\WindowsFirewall\PrivateProfile"
+if ($FirewallDomain.EnableFirewall -eq 1 -And $FirewallPublic.EnableFirewall -eq 1 -And $FirewallPrivate.EnableFirewall -eq 1) { 
+    $url = "https://$epohost/remote/system.applyTag?names=$compName&tagName=WinFirewall"
+    $wc.DownloadString($url)
+    $ComplianceStatus = ($ComplianceStatus + 1)
 } 
 	
 #
@@ -167,7 +168,15 @@ If ($ComplianceStatus -eq 6) {
 	$url = "https://$epohost/remote/system.applyTag?names=$compName&tagName=WinCompliance"
 	$wc.DownloadString($url)
 }
-
+# Checking Microsoft Defender ATP
+#
+if (Test-Path -Path "HKLM:\SOFTWARE\Microsoft\Windows Advanced Threat Protection\Status") { 
+	$MDATP = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Advanced Threat Protection\Status" }
+	If ($MDATP.OnboardingState -eq 1) {
+		$url = "https://$epohost/remote/system.applyTag?names=$compName&tagName=WinMDATP"
+		$wc.DownloadString($url)
+		$ComplianceStatus = ($ComplianceStatus + 1)
+	}
 #
 # Set Bios Version and set Agent Custom property 1.
 #
